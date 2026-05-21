@@ -1,0 +1,25 @@
+# Ambiente virtual Python
+.venv/
+
+# Variáveis de ambiente com tokens e secrets
+.env
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs locais
+logs/*.log
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos temporários
+*.tmp
+*.bak
+
+# Dados locais opcionais
+data/posts_queue.json
