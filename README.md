@@ -2,34 +2,42 @@
 
 ## Visão geral
 
-Este projeto implementa uma skill para o Claude capaz de organizar o fluxo de publicação automática de fotos no Instagram usando APIs oficiais.
+Este projeto implementa uma skill para o Claude capaz de organizar e executar um fluxo automatizado de publicação de fotos no Instagram usando APIs oficiais.
 
-A solução foi construída para atender a um desafio técnico com os seguintes requisitos principais:
+A solução foi desenvolvida para atender a um desafio técnico com os seguintes requisitos:
 
-- Publicar conteúdo no Instagram via API.
-- Não usar automação de navegador.
-- Rodar em background.
-- Usar um app Meta em modo desenvolvimento/sandbox.
-- Demonstrar o funcionamento com prints ou vídeo.
-- Publicar pelo menos uma foto com legenda em uma conta Instagram.
+- Execução 100% via API.
+- Publicação de pelo menos uma foto com legenda em uma conta Instagram.
+- Execução em background.
+- Uso de app Meta em modo desenvolvimento/sandbox.
+- Demonstração do funcionamento com prints ou vídeo.
+- Proibição de automação via navegador, Selenium, Puppeteer, Playwright ou cliques simulados.
 
-O projeto utiliza uma arquitetura composta por:
+A arquitetura combina Claude Code Skill, Cloudinary API, fila local em JSON, worker Python em background e Instagram Graph API/Facebook Graph API.
+
+---
+
+## Arquitetura
 
 ```text
-Claude Skill
+Claude Code Skill
 ↓
-Upload da imagem local para o Cloudinary via API
+Script de enfileiramento
 ↓
-Geração de URL pública HTTPS
+Cloudinary API
 ↓
-Fila local em JSON
+URL pública HTTPS da imagem
 ↓
-Worker Python rodando em background
+Fila local JSON
+↓
+Worker Python em background
 ↓
 Instagram Graph API / Facebook Graph API
 ↓
-Publicação no Instagram
+Post publicado no Instagram
 ```
+
+A skill organiza o fluxo e define as regras da automação. O Cloudinary transforma uma imagem local em uma URL pública HTTPS. A fila JSON armazena publicações pendentes. O worker Python roda em background e processa automaticamente as publicações quando chega o horário configurado. A publicação final é feita pela Instagram Graph API/Facebook Graph API.
 
 ---
 
@@ -41,76 +49,35 @@ Publicação no Instagram
 - Instagram Graph API / Facebook Graph API
 - JSON como fila local
 - Worker local em background
-- Arquivo `.env` para variáveis de ambiente
+- Variáveis de ambiente com `.env`
+- Git/GitHub para versionamento
 
 ---
 
-## Objetivo do projeto
+## Requisitos atendidos
 
-O objetivo é permitir que uma imagem local seja preparada para publicação no Instagram de forma automatizada.
-
-Como a Instagram Graph API exige uma URL pública da imagem, o sistema primeiro envia a imagem local para o Cloudinary. O Cloudinary retorna uma URL HTTPS pública, que depois é usada pelo worker para publicar a foto no Instagram.
-
-A skill do Claude atua como camada de orquestração, enquanto o worker Python é responsável pela execução autônoma em background.
-
----
-
-## Arquitetura
-
-```text
-+--------------------------+
-| Claude Code Skill        |
-| instagram-publisher      |
-+------------+-------------+
-             |
-             | agenda/cria tarefa
-             v
-+--------------------------+
-| enqueue_post.py          |
-| recebe imagem e legenda  |
-+------------+-------------+
-             |
-             | upload via API
-             v
-+--------------------------+
-| Cloudinary API           |
-| retorna secure_url       |
-+------------+-------------+
-             |
-             | salva URL pública
-             v
-+--------------------------+
-| posts_queue.json         |
-| status: pending          |
-+------------+-------------+
-             |
-             | worker verifica fila
-             v
-+--------------------------+
-| worker.py                |
-| execução em background   |
-+------------+-------------+
-             |
-             | chamada via API
-             v
-+--------------------------+
-| Instagram Graph API      |
-| /media e /media_publish  |
-+------------+-------------+
-             |
-             v
-+--------------------------+
-| Foto publicada           |
-| no Instagram             |
-+--------------------------+
-```
+| Requisito | Status |
+|---|---|
+| Skill estruturada no Claude Code | Concluído |
+| Execução via API oficial | Concluído |
+| Upload de imagem via Cloudinary API | Concluído |
+| Geração de URL pública HTTPS | Concluído |
+| Fila JSON funcionando | Concluído |
+| Worker em background funcionando | Concluído |
+| Sem automação de navegador | Concluído |
+| Sem Selenium, Puppeteer ou Playwright | Concluído |
+| App Meta em desenvolvimento/sandbox | Concluído |
+| Token real da Meta configurado | Concluído |
+| Publicação real no Instagram | Concluído |
+| Post publicado com legenda | Concluído |
+| Evidências de funcionamento | Concluído |
 
 ---
 
 ## Estrutura do projeto
 
 ```text
-instagram-claude-skill/
+PROJETO_ESTAGIO/
 │
 ├── .claude/
 │   └── skills/
@@ -124,7 +91,12 @@ instagram-claude-skill/
 │   └── worker.py
 │
 ├── data/
-│   └── posts_queue.json
+│   ├── posts_queue.json
+│   └── posts_queue.example.json
+│
+├── docs/
+│   ├── RELATORIO_DESAFIO.md
+│   └── evidencias/
 │
 ├── logs/
 │   └── publisher.log
@@ -135,8 +107,8 @@ instagram-claude-skill/
 ├── .env
 ├── .env.example
 ├── .gitignore
-├── requirements.txt
-└── README.md
+├── README.md
+└── requirements.txt
 ```
 
 ---
@@ -147,21 +119,19 @@ instagram-claude-skill/
 
 Arquivo principal da skill do Claude.
 
-Ele define quando a skill deve ser usada, quais regras devem ser seguidas e como o fluxo de publicação deve funcionar.
+Define as regras de funcionamento do projeto, incluindo:
 
-A skill deixa explícito que:
-
-- não deve usar navegador;
-- não deve usar Selenium, Puppeteer ou Playwright;
-- deve usar Cloudinary API para hospedar a imagem;
-- deve usar Instagram Graph API/Facebook Graph API para publicar;
-- deve usar o worker para execução em background.
+- Não usar automação via navegador.
+- Não usar Selenium, Puppeteer, Playwright ou cliques simulados.
+- Usar Cloudinary API para transformar imagem local em URL pública.
+- Usar Instagram Graph API/Facebook Graph API para publicação.
+- Usar worker Python para execução em background.
 
 ---
 
 ### `scripts/cloudinary_client.py`
 
-Responsável por fazer upload da imagem local para o Cloudinary via API.
+Responsável por enviar a imagem local para o Cloudinary via API.
 
 Entrada:
 
@@ -175,27 +145,30 @@ Saída:
 https://res.cloudinary.com/...
 ```
 
-Essa URL pública é necessária porque a Instagram Graph API não aceita arquivos locais diretamente. Ela precisa receber uma URL pública acessível pela internet.
+A URL pública gerada pelo Cloudinary é usada como `image_url` na publicação do Instagram.
 
 ---
 
 ### `scripts/enqueue_post.py`
 
-Responsável por criar uma nova publicação na fila.
+Responsável por criar uma nova tarefa de publicação.
 
-Ele executa as seguintes etapas:
+Esse script:
 
+```text
 1. Recebe o caminho local da imagem.
 2. Recebe a legenda.
-3. Recebe o horário de agendamento.
-4. Envia a imagem para o Cloudinary.
-5. Recebe a URL pública da imagem.
-6. Salva a publicação no arquivo `data/posts_queue.json`.
+3. Recebe a data e horário de agendamento.
+4. Faz upload da imagem para o Cloudinary.
+5. Recebe a URL pública HTTPS.
+6. Cria um item na fila.
+7. Salva a publicação em data/posts_queue.json.
+```
 
 Exemplo de uso:
 
 ```bash
-python scripts/enqueue_post.py "media/test.jpg" "Legenda da publicação" "2026-05-20T21:30:00"
+python scripts/enqueue_post.py "media/test.jpg" "Publicado automaticamente via Claude Skill, Cloudinary API e Instagram Graph API." "2026-05-22T15:30:00"
 ```
 
 ---
@@ -207,30 +180,32 @@ Arquivo usado como fila local de publicações.
 Exemplo de item na fila:
 
 ```json
-[
-  {
-    "id": "uuid-do-post",
-    "local_image_path": "media/test.jpg",
-    "image_url": "https://res.cloudinary.com/...",
-    "caption": "Legenda da publicação",
-    "scheduled_at": "2026-05-20T21:30:00",
-    "status": "pending",
-    "created_at": "2026-05-20T21:25:00",
-    "published_at": null,
-    "cloudinary_public_id": "instagram_skill/post_...",
-    "creation_id": null,
-    "media_id": null,
-    "error": null
-  }
-]
+{
+  "id": "uuid-do-post",
+  "local_image_path": "media/test.jpg",
+  "image_url": "https://res.cloudinary.com/...",
+  "caption": "Legenda da publicação",
+  "scheduled_at": "2026-05-22T15:30:00",
+  "status": "pending",
+  "created_at": "2026-05-22T15:25:00",
+  "published_at": null,
+  "cloudinary_public_id": "instagram_skill/post_...",
+  "cloudinary_format": "jpg",
+  "cloudinary_width": 1080,
+  "cloudinary_height": 1080,
+  "cloudinary_bytes": 123456,
+  "creation_id": null,
+  "media_id": null,
+  "error": null
+}
 ```
 
 Principais status:
 
 ```text
 pending          → publicação aguardando execução
-mock_published   → execução simulada com sucesso em modo de desenvolvimento
-published        → publicação real feita no Instagram
+mock_published   → publicação simulada em modo de desenvolvimento
+published        → publicação real concluída no Instagram
 failed           → erro durante a execução
 ```
 
@@ -240,16 +215,16 @@ failed           → erro durante a execução
 
 Responsável por rodar em background.
 
-O worker verifica a fila periodicamente e publica automaticamente os posts pendentes quando chega o horário agendado.
+O worker fica ativo verificando a fila em intervalos definidos e publica automaticamente os posts pendentes quando chega o horário configurado.
 
 Fluxo do worker:
 
 ```text
-1. Lê o arquivo posts_queue.json.
+1. Lê o arquivo data/posts_queue.json.
 2. Procura posts com status pending.
 3. Verifica se o horário scheduled_at já chegou.
-4. Publica a imagem usando Instagram Graph API.
-5. Atualiza o status da publicação.
+4. Publica a imagem usando Instagram Graph API/Facebook Graph API.
+5. Atualiza o status para published.
 6. Registra logs da execução.
 ```
 
@@ -272,7 +247,7 @@ POST /{ig-user-id}/media
 POST /{ig-user-id}/media_publish
 ```
 
-Primeiro é criado um container de mídia com a imagem e a legenda. Depois esse container é publicado no Instagram.
+Primeiro o sistema cria um container de mídia com a imagem e a legenda. Depois publica esse container no Instagram.
 
 ---
 
@@ -289,7 +264,7 @@ Modo real
 
 ## Modo mock
 
-O modo mock serve para desenvolvimento e testes enquanto o token da Meta ainda não está configurado.
+O modo mock serve para desenvolvimento e testes.
 
 No arquivo `.env`, use:
 
@@ -299,27 +274,26 @@ MOCK_INSTAGRAM=true
 
 Nesse modo:
 
-- o Cloudinary funciona de verdade;
-- a imagem é enviada via API;
-- a URL pública é gerada;
-- o post entra na fila;
-- o worker roda em background;
-- a etapa do Instagram é simulada;
-- nenhuma chamada real é feita ao Instagram.
+- A imagem é enviada de verdade ao Cloudinary.
+- A URL pública HTTPS é gerada.
+- O post entra na fila JSON.
+- O worker roda em background.
+- A etapa final do Instagram é simulada.
+- Nenhuma chamada real é feita ao Instagram.
 
-Quando a simulação funciona, o status vira:
+Quando o modo mock funciona, o status muda para:
 
 ```text
 mock_published
 ```
 
-Esse modo não deve ser usado como prova final de publicação no Instagram. Ele serve apenas para validar o fluxo do sistema antes da configuração final da Meta.
+Esse modo não deve ser usado como evidência final de publicação no Instagram. Ele serve apenas para validar o fluxo enquanto a integração real com a Meta ainda não está configurada.
 
 ---
 
 ## Modo real
 
-O modo real deve ser usado na entrega final.
+O modo real deve ser usado para a entrega final.
 
 No arquivo `.env`, use:
 
@@ -327,21 +301,23 @@ No arquivo `.env`, use:
 MOCK_INSTAGRAM=false
 ```
 
-Também é necessário preencher:
+Também é necessário configurar:
 
 ```env
+GRAPH_API_VERSION=v25.0
 INSTAGRAM_USER_ID=seu_instagram_user_id
 INSTAGRAM_ACCESS_TOKEN=seu_token_da_meta
 ```
 
 Nesse modo:
 
-- o Cloudinary continua enviando a imagem via API;
-- o worker usa a URL pública gerada;
-- a publicação é feita pela Instagram Graph API/Facebook Graph API;
-- o post aparece de verdade no Instagram.
+- A imagem é enviada ao Cloudinary via API.
+- A URL pública HTTPS é salva na fila.
+- O worker roda em background.
+- O worker chama a Instagram Graph API/Facebook Graph API.
+- O post é publicado de verdade no Instagram.
 
-Quando a publicação real funciona, o status vira:
+Quando a publicação real funciona, o status muda para:
 
 ```text
 published
@@ -396,11 +372,40 @@ CLOUDINARY_API_KEY=sua_api_key
 CLOUDINARY_API_SECRET=seu_api_secret
 
 # Meta / Instagram Graph API
-GRAPH_API_VERSION=v24.0
+GRAPH_API_VERSION=v25.0
 INSTAGRAM_USER_ID=seu_instagram_user_id
 INSTAGRAM_ACCESS_TOKEN=seu_token_da_meta
 
-# Modo de desenvolvimento
+# Modo de execução
+MOCK_INSTAGRAM=false
+
+# Worker
+QUEUE_FILE=data/posts_queue.json
+WORKER_INTERVAL_SECONDS=15
+```
+
+O arquivo `.env` contém credenciais sensíveis e não deve ser enviado ao GitHub.
+
+---
+
+## Arquivo `.env.example`
+
+O projeto contém um arquivo `.env.example` para demonstrar o formato esperado das variáveis sem expor credenciais reais.
+
+Exemplo:
+
+```env
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=seu_cloud_name
+CLOUDINARY_API_KEY=sua_api_key
+CLOUDINARY_API_SECRET=seu_api_secret
+
+# Meta / Instagram Graph API
+GRAPH_API_VERSION=v25.0
+INSTAGRAM_USER_ID=seu_instagram_user_id
+INSTAGRAM_ACCESS_TOKEN=seu_token_da_meta
+
+# Modo de execução
 MOCK_INSTAGRAM=true
 
 # Worker
@@ -408,10 +413,62 @@ QUEUE_FILE=data/posts_queue.json
 WORKER_INTERVAL_SECONDS=15
 ```
 
-Para a entrega final, alterar:
+---
 
-```env
-MOCK_INSTAGRAM=false
+## Segurança
+
+O projeto usa `.gitignore` para impedir que credenciais e arquivos locais sensíveis sejam enviados ao GitHub.
+
+O `.gitignore` deve conter:
+
+```gitignore
+# Ambiente virtual Python
+.venv/
+
+# Variáveis de ambiente com tokens e secrets
+.env
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs locais
+logs/*.log
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos temporários
+*.tmp
+*.bak
+
+# Dados locais
+data/posts_queue.json
+```
+
+Arquivos que não devem ir para o GitHub:
+
+```text
+.env
+.venv/
+data/posts_queue.json
+logs/publisher.log
+__pycache__/
+```
+
+Arquivos que podem ir para o GitHub:
+
+```text
+.env.example
+README.md
+requirements.txt
+scripts/
+.claude/
+docs/
+data/posts_queue.example.json
 ```
 
 ---
@@ -427,7 +484,7 @@ python scripts/enqueue_post.py "CAMINHO_DA_IMAGEM" "LEGENDA" "AAAA-MM-DDTHH:MM:S
 Exemplo:
 
 ```bash
-python scripts/enqueue_post.py "media/test.jpg" "Post publicado automaticamente via Claude Skill, Cloudinary API e Instagram Graph API." "2026-05-20T21:30:00"
+python scripts/enqueue_post.py "media/test.jpg" "Publicado automaticamente via Claude Skill, Cloudinary API e Instagram Graph API." "2026-05-22T15:30:00"
 ```
 
 O script vai:
@@ -437,7 +494,7 @@ O script vai:
 2. Fazer upload para o Cloudinary.
 3. Receber uma URL pública HTTPS.
 4. Criar uma publicação com status pending.
-5. Salvar a publicação no arquivo posts_queue.json.
+5. Salvar a publicação em data/posts_queue.json.
 ```
 
 ---
@@ -497,14 +554,14 @@ python scripts/worker.py
 ### 4. Em outro terminal, adicionar uma publicação
 
 ```bash
-python scripts/enqueue_post.py "media/test.jpg" "Teste em background com Cloudinary e modo mock." "2026-05-20T21:30:00"
+python scripts/enqueue_post.py "media/test.jpg" "Teste em background com Cloudinary e modo mock." "2026-05-22T15:30:00"
 ```
 
 ### 5. Conferir o resultado
 
 O worker deve processar a fila automaticamente.
 
-O status deve mudar para:
+O status esperado é:
 
 ```text
 mock_published
@@ -520,94 +577,139 @@ No `.env`:
 
 ```env
 MOCK_INSTAGRAM=false
+GRAPH_API_VERSION=v25.0
 INSTAGRAM_USER_ID=seu_instagram_user_id
 INSTAGRAM_ACCESS_TOKEN=seu_token_da_meta
 ```
 
-### 2. Rodar o worker
+### 2. Testar se o token está funcionando
+
+```powershell
+python -c "from dotenv import load_dotenv; import os, requests; load_dotenv(); v=os.getenv('GRAPH_API_VERSION','v25.0'); ig=os.getenv('INSTAGRAM_USER_ID'); token=os.getenv('INSTAGRAM_ACCESS_TOKEN'); r=requests.get(f'https://graph.facebook.com/{v}/{ig}', params={'fields':'id,username','access_token':token}); print(r.status_code); print(r.text)"
+```
+
+Resultado esperado:
+
+```json
+{
+  "id": "ID_DA_CONTA_INSTAGRAM",
+  "username": "usuario_instagram"
+}
+```
+
+### 3. Limpar a fila
+
+No arquivo `data/posts_queue.json`, deixar:
+
+```json
+[]
+```
+
+### 4. Adicionar uma publicação
+
+```bash
+python scripts/enqueue_post.py "media/test.jpg" "Publicado automaticamente via API oficial." "2026-05-22T15:30:00"
+```
+
+### 5. Rodar o worker
 
 ```bash
 python scripts/worker.py
 ```
 
-### 3. Adicionar uma publicação
+### 6. Conferir o resultado
 
-```bash
-python scripts/enqueue_post.py "media/test.jpg" "Publicado automaticamente via API oficial." "2026-05-20T21:30:00"
-```
-
-### 4. Conferir resultado
-
-O status esperado é:
+O status esperado em `data/posts_queue.json` é:
 
 ```text
 published
 ```
 
-E o post deve aparecer no Instagram.
+E o post deve aparecer na conta Instagram configurada.
 
 ---
 
-## Evidências para o desafio
+## Fluxo da publicação real
 
-Para demonstrar o funcionamento, registrar prints ou vídeo mostrando:
-
-1. Estrutura do projeto.
-2. Arquivo `SKILL.md`.
-3. Código do upload para Cloudinary.
-4. Código da integração com Instagram Graph API.
-5. Upload da imagem para o Cloudinary.
-6. URL pública `https://res.cloudinary.com/...`.
-7. Fila com status `pending`.
-8. Worker rodando em background.
-9. Logs da execução.
-10. Fila atualizada para `published`.
-11. Post aparecendo no Instagram.
-
-Durante o desenvolvimento, o status `mock_published` pode ser usado para demonstrar que a fila e o worker funcionam. Porém, para a entrega final, é necessário demonstrar a publicação real com status `published`.
-
----
-
-## Requisitos atendidos
-
-### Execução 100% via API
-
-A publicação não utiliza navegador. Toda interação técnica é feita por API:
+O fluxo completo da publicação real é:
 
 ```text
-Cloudinary API
-Instagram Graph API / Facebook Graph API
+1. Imagem local salva em media/test.jpg.
+2. enqueue_post.py recebe imagem, legenda e horário.
+3. Imagem é enviada ao Cloudinary via API.
+4. Cloudinary retorna uma URL pública HTTPS.
+5. Publicação é salva em data/posts_queue.json com status pending.
+6. worker.py roda em background.
+7. Worker identifica a publicação pendente.
+8. Worker chama a Instagram Graph API.
+9. A API cria o container de mídia.
+10. A API publica o container.
+11. A fila muda para status published.
+12. O post aparece no Instagram.
 ```
 
 ---
 
-### Publicação de conteúdo
+## Evidências do desafio
 
-O projeto foi estruturado para publicar uma foto com legenda no Instagram.
-
-No modo real, o worker usa os endpoints oficiais da Graph API para criar o container de mídia e publicar o conteúdo.
-
----
-
-### Execução em background
-
-A execução autônoma é feita pelo arquivo:
+As evidências foram organizadas em:
 
 ```text
-scripts/worker.py
+docs/evidencias/
 ```
 
-O worker permanece ativo, verificando a fila e executando as publicações automaticamente.
+Evidências do fluxo estrutural e modo mock:
+
+```text
+01_estrutura_projeto.png
+02_skill_claude.png
+03_cloudinary_client.png
+04_enqueue_post.png
+05_worker_background.png
+06_fila_pending.png
+07_worker_processando.png
+08_fila_mock_published.png
+09_github_repositorio.png
+```
+
+Evidências da publicação real:
+
+```text
+10_env_mock_false.png
+11_worker_publicacao_real.png
+12_fila_published.png
+13_post_instagram.png
+```
 
 ---
 
-### App Meta em sandbox/desenvolvimento
+## Relatório técnico
 
-O projeto foi planejado para funcionar com um app Meta em modo desenvolvimento/sandbox, desde que o usuário tenha permissão no app e a conta Instagram esteja corretamente conectada à Página do Facebook.
+O relatório técnico do desafio está em:
+
+```text
+docs/RELATORIO_DESAFIO.md
+```
+
+Ele descreve:
+
+```text
+1. Objetivo do projeto.
+2. Ferramenta escolhida.
+3. Arquitetura.
+4. Justificativa do Cloudinary.
+5. Justificativa do worker em background.
+6. Estrutura do projeto.
+7. Arquivos principais.
+8. Modos de execução.
+9. Evidências.
+10. Requisitos atendidos.
+11. Limitações e melhorias futuras.
+```
 
 ---
 
-### Sem automação de navegador
+## O que o projeto não usa
 
 O projeto não usa:
 
@@ -617,57 +719,56 @@ Puppeteer
 Playwright
 Automação visual
 Cliques simulados
-Navegação automatizada
+Navegação automatizada no browser
 ```
 
----
-
-## Segurança
-
-O arquivo `.env` contém credenciais sensíveis e não deve ser enviado para o GitHub.
-
-O `.gitignore` deve conter:
-
-```gitignore
-.venv/
-.env
-__pycache__/
-*.pyc
-.DS_Store
-```
+A publicação é feita por API oficial.
 
 ---
 
 ## Limitações atuais
 
-- A publicação real depende da obtenção de um token válido da Meta.
-- A conta Instagram precisa ser profissional.
-- A conta Instagram precisa estar conectada a uma Página do Facebook.
-- A imagem precisa ter uma URL pública HTTPS.
-- O modo mock não publica no Instagram real; ele serve apenas para desenvolvimento.
+- A fila usa JSON local, suficiente para um MVP e para a demonstração do desafio.
+- O worker roda localmente, então depende da máquina estar ligada.
+- O token da Meta pode expirar dependendo do tipo de token utilizado.
+- O projeto publica uma foto por vez.
+- O projeto ainda não possui interface gráfica.
+- O projeto não possui dashboard de gerenciamento de publicações.
 
 ---
 
 ## Melhorias futuras
 
-Possíveis melhorias para o projeto:
+Possíveis melhorias:
 
-- Usar banco de dados em vez de JSON.
-- Criar dashboard para visualizar fila e logs.
+- Substituir JSON por banco de dados.
+- Criar dashboard para gerenciar publicações.
 - Adicionar suporte a carrossel.
-- Adicionar suporte a Reels.
+- Adicionar suporte a reels.
 - Criar sistema de retry automático.
-- Criar logs estruturados em JSON.
-- Publicar o worker em um servidor cloud.
-- Implementar renovação ou validação automática de token.
+- Implementar logs estruturados em JSON.
+- Hospedar o worker em um servidor cloud.
+- Criar validação automática de token.
 - Adicionar testes automatizados.
-- Criar interface simples para cadastro de publicações.
+- Criar endpoint HTTP para receber tarefas de publicação.
+- Adicionar renovação ou alerta de expiração do token.
 
 ---
 
-## Resumo técnico
+## Conclusão
 
-A solução separa a responsabilidade da skill e da execução em background.
+O projeto implementa uma skill para Claude integrada a um fluxo automatizado de publicação no Instagram.
 
-A Claude Skill organiza o fluxo e define as regras da automação. O Cloudinary resolve a necessidade de hospedar imagens locais em uma URL pública. A fila JSON armazena publicações pendentes. O worker Python executa em background e processa a fila automaticamente. No modo real, a publicação é enviada à Instagram Graph API/Facebook Graph API, sem uso de navegador ou automação visual.#   i n s t a g r a m - c l a u d e - s k i l l - p u b l i s h e r  
- 
+A solução usa APIs oficiais, não depende de automação de navegador, possui worker em background e realizou uma publicação real com legenda no Instagram.
+
+A arquitetura separa responsabilidades de forma clara:
+
+```text
+Skill do Claude → orquestração
+Cloudinary → hospedagem pública da imagem
+JSON → fila local
+Worker Python → execução em background
+Instagram Graph API → publicação real
+```
+
+Com isso, o projeto demonstra integração com APIs, organização de arquitetura, execução autônoma, preocupação com segurança e documentação técnica para entrega.
